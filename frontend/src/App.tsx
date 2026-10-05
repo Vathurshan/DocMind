@@ -5,14 +5,20 @@ import Dashboard from "./Dashboard";
 
 function App() {
   const [isLogin, setIsLogin] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(
-  localStorage.getItem("token") !== null
-);
 
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    localStorage.getItem("token") !== null
+  );
+
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [message, setMessage] = useState("");
+
+  // =========================
+  // LOGIN
+  // =========================
 
   const handleLogin = async () => {
     setMessage("");
@@ -39,12 +45,12 @@ function App() {
         return;
       }
 
-      // Save JWT token in browser
-    localStorage.setItem("token", data.token);
+      // Save JWT token
+      localStorage.setItem("token", data.token);
 
-    console.log("Logged in user:", data);
+      console.log("Logged in user:", data);
 
-    setIsLoggedIn(true);
+      setIsLoggedIn(true);
 
     } catch (error) {
       console.error(error);
@@ -52,9 +58,65 @@ function App() {
     }
   };
 
-    if (isLoggedIn) {
-  return <Dashboard />;
-}
+
+  // =========================
+  // REGISTER
+  // =========================
+
+  const handleRegister = async () => {
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        "http://localhost:8080/api/auth/register",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fullName: fullName,
+            email: email,
+            password: password,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+
+        if (response.status === 409) {
+          setMessage("This email is already registered.");
+        } else {
+          setMessage("Registration failed.");
+        }
+
+        return;
+      }
+
+      // Registration successful
+      localStorage.setItem("token", data.token);
+
+      console.log("Registered user:", data);
+
+      setIsLoggedIn(true);
+
+    } catch (error) {
+      console.error(error);
+      setMessage("Cannot connect to the server.");
+    }
+  };
+
+
+  // =========================
+  // SHOW DASHBOARD
+  // =========================
+
+  if (isLoggedIn) {
+    return <Dashboard />;
+  }
+
 
   return (
     <div className="app">
@@ -115,6 +177,7 @@ function App() {
 
         </div>
 
+
         {/* RIGHT SIDE */}
 
         <div className="auth-card">
@@ -135,27 +198,39 @@ function App() {
 
           </div>
 
+
           {/* TABS */}
 
           <div className="auth-tabs">
 
             <button
               className={isLogin ? "active" : ""}
-              onClick={() => setIsLogin(true)}
+              onClick={() => {
+                setIsLogin(true);
+                setMessage("");
+              }}
             >
               Login
             </button>
 
             <button
               className={!isLogin ? "active" : ""}
-              onClick={() => setIsLogin(false)}
+              onClick={() => {
+                setIsLogin(false);
+                setMessage("");
+              }}
             >
               Register
             </button>
 
           </div>
 
+
+          {/* FORM */}
+
           <div className="form">
+
+            {/* FULL NAME - REGISTER ONLY */}
 
             {!isLogin && (
               <div className="input-group">
@@ -165,10 +240,17 @@ function App() {
                 <input
                   type="text"
                   placeholder="Enter your full name"
+                  value={fullName}
+                  onChange={(e) =>
+                    setFullName(e.target.value)
+                  }
                 />
 
               </div>
             )}
+
+
+            {/* EMAIL */}
 
             <div className="input-group">
 
@@ -178,10 +260,15 @@ function App() {
                 type="email"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) =>
+                  setEmail(e.target.value)
+                }
               />
 
             </div>
+
+
+            {/* PASSWORD */}
 
             <div className="input-group">
 
@@ -191,10 +278,15 @@ function App() {
                 type="password"
                 placeholder="Enter your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) =>
+                  setPassword(e.target.value)
+                }
               />
 
             </div>
+
+
+            {/* FORGOT PASSWORD */}
 
             {isLogin && (
               <div className="forgot-password">
@@ -202,22 +294,35 @@ function App() {
               </div>
             )}
 
-          <button
-            type="button"
-            className="submit-button"
-            onClick={() => {
-              console.log("LOGIN BUTTON CLICKED");
-              handleLogin();
-            }}
-          >
+
+            {/* SUBMIT BUTTON */}
+
+            <button
+              type="button"
+              className="submit-button"
+              onClick={() => {
+
+                if (isLogin) {
+                  console.log("LOGIN BUTTON CLICKED");
+                  handleLogin();
+                } else {
+                  console.log("REGISTER BUTTON CLICKED");
+                  handleRegister();
+                }
+
+              }}
+            >
+
               {isLogin
                 ? "Sign in"
                 : "Create account"}
 
               <span>→</span>
+
             </button>
 
           </div>
+
 
           {/* MESSAGE */}
 
@@ -233,6 +338,9 @@ function App() {
               {message}
             </p>
           )}
+
+
+          {/* BOTTOM TEXT */}
 
           <p className="bottom-text">
 
@@ -256,6 +364,9 @@ function App() {
         </div>
 
       </div>
+
+
+      {/* FOOTER */}
 
       <div className="footer">
         © 2026 DocMind · Intelligent Document Assistant
