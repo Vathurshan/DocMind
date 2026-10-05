@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import Dashboard from "./Dashboard";
 
@@ -10,27 +10,94 @@ function App() {
     localStorage.getItem("token") !== null
   );
 
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [message, setMessage] = useState("");
 
+
+  // =========================
+  // VERIFY EXISTING JWT
+  // =========================
+
+  useEffect(() => {
+    const verifyToken = async () => {
+
+      const token = localStorage.getItem("token");
+
+      // No token means user is not logged in
+      if (!token) {
+        setIsLoggedIn(false);
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      try {
+
+        const response = await fetch(
+          "http://localhost:8080/api/me",
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+
+          // Token is invalid or expired
+          localStorage.removeItem("token");
+          setIsLoggedIn(false);
+
+        } else {
+
+          // Token is valid
+          setIsLoggedIn(true);
+
+        }
+
+      } catch (error) {
+
+        console.error("Authentication check failed:", error);
+
+        // If backend cannot be reached,
+        // keep the existing login state for now.
+
+      } finally {
+
+        setIsCheckingAuth(false);
+
+      }
+    };
+
+    verifyToken();
+
+  }, []);
+
+
   // =========================
   // LOGIN
   // =========================
 
   const handleLogin = async () => {
+
     setMessage("");
 
     try {
+
       const response = await fetch(
         "http://localhost:8080/api/auth/login",
         {
           method: "POST",
+
           headers: {
             "Content-Type": "application/json",
           },
+
           body: JSON.stringify({
             email: email,
             password: password,
@@ -41,7 +108,9 @@ function App() {
       const data = await response.json();
 
       if (!response.ok) {
+
         setMessage("Invalid email or password.");
+
         return;
       }
 
@@ -53,8 +122,11 @@ function App() {
       setIsLoggedIn(true);
 
     } catch (error) {
+
       console.error(error);
+
       setMessage("Cannot connect to the server.");
+
     }
   };
 
@@ -64,16 +136,20 @@ function App() {
   // =========================
 
   const handleRegister = async () => {
+
     setMessage("");
 
     try {
+
       const response = await fetch(
         "http://localhost:8080/api/auth/register",
         {
           method: "POST",
+
           headers: {
             "Content-Type": "application/json",
           },
+
           body: JSON.stringify({
             fullName: fullName,
             email: email,
@@ -87,15 +163,21 @@ function App() {
       if (!response.ok) {
 
         if (response.status === 409) {
-          setMessage("This email is already registered.");
+
+          setMessage(
+            "This email is already registered."
+          );
+
         } else {
+
           setMessage("Registration failed.");
+
         }
 
         return;
       }
 
-      // Registration successful
+      // Save JWT token
       localStorage.setItem("token", data.token);
 
       console.log("Registered user:", data);
@@ -103,10 +185,38 @@ function App() {
       setIsLoggedIn(true);
 
     } catch (error) {
+
       console.error(error);
+
       setMessage("Cannot connect to the server.");
+
     }
   };
+
+
+  // =========================
+  // CHECKING AUTHENTICATION
+  // =========================
+
+  if (isCheckingAuth) {
+
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#080812",
+          color: "#ffffff",
+          fontSize: "16px",
+        }}
+      >
+        Checking authentication...
+      </div>
+    );
+
+  }
 
 
   // =========================
@@ -114,9 +224,15 @@ function App() {
   // =========================
 
   if (isLoggedIn) {
+
     return <Dashboard />;
+
   }
 
+
+  // =========================
+  // LOGIN / REGISTER PAGE
+  // =========================
 
   return (
     <div className="app">
@@ -124,7 +240,9 @@ function App() {
       <div className="glow glow-one"></div>
       <div className="glow glow-two"></div>
 
+
       <div className="auth-container">
+
 
         {/* LEFT SIDE */}
 
@@ -144,33 +262,69 @@ function App() {
             Read, understand and interact with your documents.
           </p>
 
+
           <div className="feature-list">
 
             <div className="feature">
-              <div className="feature-icon">📄</div>
+
+              <div className="feature-icon">
+                📄
+              </div>
 
               <div>
-                <strong>Smart Documents</strong>
-                <p>Understand your documents faster.</p>
+
+                <strong>
+                  Smart Documents
+                </strong>
+
+                <p>
+                  Understand your documents faster.
+                </p>
+
               </div>
+
             </div>
 
+
             <div className="feature">
-              <div className="feature-icon">✦</div>
+
+              <div className="feature-icon">
+                ✦
+              </div>
 
               <div>
-                <strong>AI Powered</strong>
-                <p>Ask questions and get intelligent answers.</p>
+
+                <strong>
+                  AI Powered
+                </strong>
+
+                <p>
+                  Ask questions and get intelligent answers.
+                </p>
+
               </div>
+
             </div>
 
+
             <div className="feature">
-              <div className="feature-icon">⚡</div>
+
+              <div className="feature-icon">
+                ⚡
+              </div>
 
               <div>
-                <strong>Fast & Simple</strong>
-                <p>Everything you need in one place.</p>
+
+                <strong>
+                  Fast & Simple
+                </strong>
+
+                <p>
+                  Everything you need in one place.
+                </p>
+
               </div>
+
             </div>
 
           </div>
@@ -182,18 +336,23 @@ function App() {
 
         <div className="auth-card">
 
+
           <div className="auth-header">
 
             <h2>
+
               {isLogin
                 ? "Welcome back"
                 : "Create your account"}
+
             </h2>
 
             <p>
+
               {isLogin
                 ? "Sign in to continue to DocMind"
                 : "Start your intelligent document journey"}
+
             </p>
 
           </div>
@@ -206,18 +365,23 @@ function App() {
             <button
               className={isLogin ? "active" : ""}
               onClick={() => {
+
                 setIsLogin(true);
                 setMessage("");
+
               }}
             >
               Login
             </button>
 
+
             <button
               className={!isLogin ? "active" : ""}
               onClick={() => {
+
                 setIsLogin(false);
                 setMessage("");
+
               }}
             >
               Register
@@ -230,12 +394,16 @@ function App() {
 
           <div className="form">
 
-            {/* FULL NAME - REGISTER ONLY */}
+
+            {/* FULL NAME */}
 
             {!isLogin && (
+
               <div className="input-group">
 
-                <label>Full Name</label>
+                <label>
+                  Full Name
+                </label>
 
                 <input
                   type="text"
@@ -247,6 +415,7 @@ function App() {
                 />
 
               </div>
+
             )}
 
 
@@ -254,7 +423,9 @@ function App() {
 
             <div className="input-group">
 
-              <label>Email</label>
+              <label>
+                Email
+              </label>
 
               <input
                 type="email"
@@ -272,7 +443,9 @@ function App() {
 
             <div className="input-group">
 
-              <label>Password</label>
+              <label>
+                Password
+              </label>
 
               <input
                 type="password"
@@ -289,9 +462,11 @@ function App() {
             {/* FORGOT PASSWORD */}
 
             {isLogin && (
+
               <div className="forgot-password">
                 Forgot password?
               </div>
+
             )}
 
 
@@ -303,11 +478,21 @@ function App() {
               onClick={() => {
 
                 if (isLogin) {
-                  console.log("LOGIN BUTTON CLICKED");
+
+                  console.log(
+                    "LOGIN BUTTON CLICKED"
+                  );
+
                   handleLogin();
+
                 } else {
-                  console.log("REGISTER BUTTON CLICKED");
+
+                  console.log(
+                    "REGISTER BUTTON CLICKED"
+                  );
+
                   handleRegister();
+
                 }
 
               }}
@@ -317,7 +502,9 @@ function App() {
                 ? "Sign in"
                 : "Create account"}
 
-              <span>→</span>
+              <span>
+                →
+              </span>
 
             </button>
 
@@ -327,6 +514,7 @@ function App() {
           {/* MESSAGE */}
 
           {message && (
+
             <p
               style={{
                 textAlign: "center",
@@ -337,6 +525,7 @@ function App() {
             >
               {message}
             </p>
+
           )}
 
 
@@ -348,18 +537,24 @@ function App() {
               ? "Don't have an account?"
               : "Already have an account?"}
 
+
             <button
               onClick={() => {
+
                 setIsLogin(!isLogin);
                 setMessage("");
+
               }}
             >
+
               {isLogin
                 ? " Create one"
                 : " Sign in"}
+
             </button>
 
           </p>
+
 
         </div>
 
@@ -369,7 +564,9 @@ function App() {
       {/* FOOTER */}
 
       <div className="footer">
+
         © 2026 DocMind · Intelligent Document Assistant
+
       </div>
 
     </div>
