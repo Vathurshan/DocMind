@@ -1,9 +1,13 @@
 
 import { useState } from "react";
 import "./App.css";
+import Dashboard from "./Dashboard";
 
 function App() {
   const [isLogin, setIsLogin] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(
+  localStorage.getItem("token") !== null
+);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,17 +40,21 @@ function App() {
       }
 
       // Save JWT token in browser
-      localStorage.setItem("token", data.token);
+    localStorage.setItem("token", data.token);
 
-      setMessage("Login successful! 🎉");
+    console.log("Logged in user:", data);
 
-      console.log("Logged in user:", data);
+    setIsLoggedIn(true);
 
     } catch (error) {
       console.error(error);
       setMessage("Cannot connect to the server.");
     }
   };
+
+    if (isLoggedIn) {
+  return <Dashboard />;
+}
 
   return (
     <div className="app">
