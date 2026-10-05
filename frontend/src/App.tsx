@@ -1,122 +1,260 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+
+import { useState } from "react";
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [isLogin, setIsLogin] = useState(true);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [message, setMessage] = useState("");
+
+  const handleLogin = async () => {
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        "http://localhost:8080/api/auth/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email,
+            password: password,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage("Invalid email or password.");
+        return;
+      }
+
+      // Save JWT token in browser
+      localStorage.setItem("token", data.token);
+
+      setMessage("Login successful! 🎉");
+
+      console.log("Logged in user:", data);
+
+    } catch (error) {
+      console.error(error);
+      setMessage("Cannot connect to the server.");
+    }
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
+    <div className="app">
+
+      <div className="glow glow-one"></div>
+      <div className="glow glow-two"></div>
+
+      <div className="auth-container">
+
+        {/* LEFT SIDE */}
+
+        <div className="brand-section">
+
+          <div className="logo">
+            <span>✦</span>
+          </div>
+
+          <h1>
+            Doc<span>Mind</span>
+          </h1>
+
+          <p className="brand-description">
+            Your intelligent document assistant.
+            <br />
+            Read, understand and interact with your documents.
           </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
+          <div className="feature-list">
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+            <div className="feature">
+              <div className="feature-icon">📄</div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+              <div>
+                <strong>Smart Documents</strong>
+                <p>Understand your documents faster.</p>
+              </div>
+            </div>
+
+            <div className="feature">
+              <div className="feature-icon">✦</div>
+
+              <div>
+                <strong>AI Powered</strong>
+                <p>Ask questions and get intelligent answers.</p>
+              </div>
+            </div>
+
+            <div className="feature">
+              <div className="feature-icon">⚡</div>
+
+              <div>
+                <strong>Fast & Simple</strong>
+                <p>Everything you need in one place.</p>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* RIGHT SIDE */}
+
+        <div className="auth-card">
+
+          <div className="auth-header">
+
+            <h2>
+              {isLogin
+                ? "Welcome back"
+                : "Create your account"}
+            </h2>
+
+            <p>
+              {isLogin
+                ? "Sign in to continue to DocMind"
+                : "Start your intelligent document journey"}
+            </p>
+
+          </div>
+
+          {/* TABS */}
+
+          <div className="auth-tabs">
+
+            <button
+              className={isLogin ? "active" : ""}
+              onClick={() => setIsLogin(true)}
+            >
+              Login
+            </button>
+
+            <button
+              className={!isLogin ? "active" : ""}
+              onClick={() => setIsLogin(false)}
+            >
+              Register
+            </button>
+
+          </div>
+
+          <div className="form">
+
+            {!isLogin && (
+              <div className="input-group">
+
+                <label>Full Name</label>
+
+                <input
+                  type="text"
+                  placeholder="Enter your full name"
+                />
+
+              </div>
+            )}
+
+            <div className="input-group">
+
+              <label>Email</label>
+
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+
+            </div>
+
+            <div className="input-group">
+
+              <label>Password</label>
+
+              <input
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+
+            </div>
+
+            {isLogin && (
+              <div className="forgot-password">
+                Forgot password?
+              </div>
+            )}
+
+          <button
+            type="button"
+            className="submit-button"
+            onClick={() => {
+              console.log("LOGIN BUTTON CLICKED");
+              handleLogin();
+            }}
+          >
+              {isLogin
+                ? "Sign in"
+                : "Create account"}
+
+              <span>→</span>
+            </button>
+
+          </div>
+
+          {/* MESSAGE */}
+
+          {message && (
+            <p
+              style={{
+                textAlign: "center",
+                marginTop: "15px",
+                color: "#8b83ff",
+                fontSize: "13px",
+              }}
+            >
+              {message}
+            </p>
+          )}
+
+          <p className="bottom-text">
+
+            {isLogin
+              ? "Don't have an account?"
+              : "Already have an account?"}
+
+            <button
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setMessage("");
+              }}
+            >
+              {isLogin
+                ? " Create one"
+                : " Sign in"}
+            </button>
+
+          </p>
+
+        </div>
+
+      </div>
+
+      <div className="footer">
+        © 2026 DocMind · Intelligent Document Assistant
+      </div>
+
+    </div>
+  );
 }
 
-export default App
+export default App;
