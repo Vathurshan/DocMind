@@ -117,9 +117,9 @@ function App() {
       // Save JWT token
       localStorage.setItem("token", data.token);
 
-      console.log("Logged in user:", data);
+console.log("Logged in user:", data);
 
-      setIsLoggedIn(true);
+setIsLoggedIn(true);
 
     } catch (error) {
 
@@ -178,11 +178,16 @@ function App() {
       }
 
       // Save JWT token
-      localStorage.setItem("token", data.token);
+     localStorage.setItem("token", data.token);
 
-      console.log("Registered user:", data);
+console.log("Logged in user:", data);
 
-      setIsLoggedIn(true);
+console.log(
+  "TOKEN AFTER SAVING:",
+  localStorage.getItem("token")
+);
+
+setIsLoggedIn(true);
 
     } catch (error) {
 

@@ -1,6 +1,7 @@
 package docmind.security;
 
-import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.http.HttpMethod;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -44,9 +45,11 @@ public class SecurityConfig {
 
                 // Which URLs are public/private
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .anyRequest().authenticated()
                 )
+
 
                 // Check JWT before Spring's normal authentication filter
                 .addFilterBefore(
