@@ -32,6 +32,9 @@ public class Document {
     @Column(nullable = false)
     private Long fileSize;
 
+    @Column(columnDefinition = "TEXT")
+    private String extractedText;
+
     @Column(nullable = false, updatable = false)
     private Instant uploadedAt;
 

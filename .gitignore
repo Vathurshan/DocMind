@@ -24,4 +24,10 @@ hs_err_pid*
 replay_pid*
 
 # Uploaded user documents
+# Python embedding service
+embedding-service/.venv/
+embedding-service/__pycache__/
+*.pyc
+
+# Backend uploaded files
 backend/uploads/
