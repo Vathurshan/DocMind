@@ -58,3 +58,17 @@ backend/target/
 
 # Accidental root lockfile from running npm in the wrong folder
 /package-lock.json
+# Python virtual environments
+.venv/
+.venv312/
+**/.venv/
+**/.venv312/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local environment secrets
+.env
+.env.*
+!.env.example
