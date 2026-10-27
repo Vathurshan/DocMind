@@ -1,5 +1,5 @@
-
 import { useEffect, useState } from "react";
+import { ApiError, api } from "./api";
 import "./App.css";
 import Dashboard from "./Dashboard";
 
@@ -36,36 +36,13 @@ function App() {
       }
 
       try {
-
-        const response = await fetch(
-          "http://localhost:8080/api/me",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!response.ok) {
-
-          // Token is invalid or expired
-          localStorage.removeItem("token");
-          setIsLoggedIn(false);
-
-        } else {
-
-          // Token is valid
-          setIsLoggedIn(true);
-
-        }
-
+        await api.get<{ email: string }>("/api/me");
+        setIsLoggedIn(true);
       } catch (error) {
-
-        console.error("Authentication check failed:", error);
-
-        // If backend cannot be reached,
-        // keep the existing login state for now.
+        if (error instanceof ApiError && error.status === 401) {
+          setIsLoggedIn(false);
+        }
+        // If the backend cannot be reached, keep the existing login state.
 
       } finally {
 
@@ -89,44 +66,27 @@ function App() {
 
     try {
 
-      const response = await fetch(
-        "http://localhost:8080/api/auth/login",
-        {
-          method: "POST",
+      const data = await api.postJson<{
+        token: string;
+        email: string;
+        fullName: string;
+      }>("/api/auth/login", {
+        email,
+        password,
+      }, true);
 
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            email: email,
-            password: password,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-
-        setMessage("Invalid email or password.");
-
-        return;
-      }
-
-      // Save JWT token
       localStorage.setItem("token", data.token);
+      localStorage.setItem("fullName", data.fullName || "");
+      localStorage.setItem("email", data.email || "");
 
-console.log("Logged in user:", data);
-
-setIsLoggedIn(true);
+      setIsLoggedIn(true);
 
     } catch (error) {
-
-      console.error(error);
-
-      setMessage("Cannot connect to the server.");
-
+      if (error instanceof ApiError && error.status === 401) {
+        setMessage("Invalid email or password.");
+        return;
+      }
+      setMessage(error instanceof Error ? error.message : "Cannot connect to the server.");
     }
   };
 
@@ -141,60 +101,32 @@ setIsLoggedIn(true);
 
     try {
 
-      const response = await fetch(
-        "http://localhost:8080/api/auth/register",
-        {
-          method: "POST",
+      const data = await api.postJson<{
+        token: string;
+        email: string;
+        fullName: string;
+      }>("/api/auth/register", {
+        fullName,
+        email,
+        password,
+      }, true);
 
-          headers: {
-            "Content-Type": "application/json",
-          },
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("fullName", data.fullName || "");
+      localStorage.setItem("email", data.email || "");
 
-          body: JSON.stringify({
-            fullName: fullName,
-            email: email,
-            password: password,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-
-        if (response.status === 409) {
-
-          setMessage(
-            "This email is already registered."
-          );
-
-        } else {
-
-          setMessage("Registration failed.");
-
-        }
-
-        return;
-      }
-
-      // Save JWT token
-     localStorage.setItem("token", data.token);
-
-console.log("Logged in user:", data);
-
-console.log(
-  "TOKEN AFTER SAVING:",
-  localStorage.getItem("token")
-);
-
-setIsLoggedIn(true);
+      setIsLoggedIn(true);
 
     } catch (error) {
-
-      console.error(error);
-
-      setMessage("Cannot connect to the server.");
-
+      if (error instanceof ApiError && error.status === 409) {
+        setMessage("This email is already registered.");
+        return;
+      }
+      if (error instanceof ApiError && error.status === 400) {
+        setMessage("Please check your name, email, and password (8+ characters).");
+        return;
+      }
+      setMessage(error instanceof Error ? error.message : "Cannot connect to the server.");
     }
   };
 
@@ -481,25 +413,11 @@ setIsLoggedIn(true);
               type="button"
               className="submit-button"
               onClick={() => {
-
                 if (isLogin) {
-
-                  console.log(
-                    "LOGIN BUTTON CLICKED"
-                  );
-
                   handleLogin();
-
                 } else {
-
-                  console.log(
-                    "REGISTER BUTTON CLICKED"
-                  );
-
                   handleRegister();
-
                 }
-
               }}
             >
 

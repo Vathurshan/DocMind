@@ -1,66 +1,44 @@
 package docmind.document;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Splits extracted document text into ordered, non-empty chunks.
+ * Overlap is not used: the established pipeline stores 1000-character windows.
+ */
 @Service
-@RequiredArgsConstructor
 public class DocumentChunkingService {
 
-    private final DocumentChunkRepository documentChunkRepository;
+    public static final int DEFAULT_CHUNK_SIZE = 1000;
 
-    private static final int CHUNK_SIZE = 1000;
-    private static final int CHUNK_OVERLAP = 200;
+    public List<String> split(String text) {
+        return split(text, DEFAULT_CHUNK_SIZE);
+    }
 
-    public List<DocumentChunk> createChunks(
-            Document document
-    ) {
-
-        String text = document.getExtractedText();
-
+    public List<String> split(String text, int chunkSize) {
+        if (chunkSize <= 0) {
+            throw new IllegalArgumentException("chunkSize must be positive");
+        }
         if (text == null || text.isBlank()) {
             return List.of();
         }
 
-        List<DocumentChunk> chunks = new ArrayList<>();
-
-        int start = 0;
-        int chunkIndex = 0;
-
-        while (start < text.length()) {
-
-            int end = Math.min(
-                    start + CHUNK_SIZE,
-                    text.length()
-            );
-
-            String chunkText = text
-                    .substring(start, end)
-                    .trim();
-
-            if (!chunkText.isBlank()) {
-
-                DocumentChunk chunk = DocumentChunk.builder()
-                        .document(document)
-                        .chunkIndex(chunkIndex)
-                        .content(chunkText)
-                        .build();
-
-                chunks.add(chunk);
-
-                chunkIndex++;
-            }
-
-            if (end == text.length()) {
-                break;
-            }
-
-            start = end - CHUNK_OVERLAP;
+        String cleanedText = text.replaceAll("\\s+", " ").trim();
+        if (cleanedText.isEmpty()) {
+            return List.of();
         }
 
-        return documentChunkRepository.saveAll(chunks);
+        List<String> chunks = new ArrayList<>();
+        for (int start = 0; start < cleanedText.length(); start += chunkSize) {
+            int end = Math.min(start + chunkSize, cleanedText.length());
+            String chunk = cleanedText.substring(start, end).trim();
+            if (!chunk.isEmpty()) {
+                chunks.add(chunk);
+            }
+        }
+        return chunks;
     }
 }

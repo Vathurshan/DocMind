@@ -6,11 +6,9 @@
 
 # BlueJ files
 *.ctxt
-
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
-
-# Package Files #
+# Package Files
 *.jar
 *.war
 *.nar
@@ -19,15 +17,44 @@
 *.tar.gz
 *.rar
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
 
-# Uploaded user documents
+# Uploaded user documents (never commit personal files)
+uploads/
+backend/uploads/
+
 # Python embedding service
 embedding-service/.venv/
 embedding-service/__pycache__/
+embedding-service/.pytest_cache/
 *.pyc
+.venv/
+venv/
 
-# Backend uploaded files
-backend/uploads/
+# Hugging Face / sentence-transformers caches
+.cache/
+*.pt
+*.bin
+*.safetensors
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/dist-ssr/
+
+# Maven
+backend/target/
+
+# Local secrets
+.env
+.env.local
+*.pem
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Accidental root lockfile from running npm in the wrong folder
+/package-lock.json
