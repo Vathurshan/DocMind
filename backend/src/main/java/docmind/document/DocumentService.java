@@ -23,8 +23,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -45,6 +48,22 @@ public class DocumentService {
             "text/x-markdown"
     );
 
+    // Hybrid retrieval configuration
+    private static final int RRF_K = 60;
+    private static final int HYBRID_CANDIDATE_LIMIT = 10;
+
+    // Words that usually add little value to keyword retrieval.
+    private static final Set<String> KEYWORD_QUERY_STOP_WORDS = Set.of(
+            "the", "a", "an", "is", "are", "was", "were",
+            "be", "been", "being", "and", "or", "but",
+            "of", "to", "in", "on", "at", "by", "for",
+            "with", "from", "between", "into", "about",
+            "explain", "describe", "define", "what", "which",
+            "who", "how", "why", "when", "where",
+            "difference", "differences", "compare",
+            "tell", "me", "please"
+    );
+
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
     private final DocumentChunkRepository documentChunkRepository;
@@ -59,22 +78,34 @@ public class DocumentService {
 
     public DocumentResponse uploadDocument(MultipartFile file, String userEmail) {
         if (file == null || file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is empty or missing");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "File is empty or missing"
+            );
         }
 
         User user = findUser(userEmail);
         byte[] bytes;
+
         try {
             bytes = file.getBytes();
         } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Could not read uploaded file");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Could not read uploaded file"
+            );
         }
+
         if (bytes.length == 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is empty or missing");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "File is empty or missing"
+            );
         }
 
         String originalName = sanitizeOriginalFileName(file.getOriginalFilename());
         String detectedType = tika.detect(bytes, originalName);
+
         if (!isAllowedType(detectedType, originalName)) {
             throw new ResponseStatusException(
                     HttpStatus.UNSUPPORTED_MEDIA_TYPE,
@@ -83,10 +114,18 @@ public class DocumentService {
         }
 
         String extractedText;
+
         try {
-            extractedText = tika.parseToString(new ByteArrayInputStream(bytes)).trim();
+            extractedText = tika.parseToString(
+                    new ByteArrayInputStream(bytes)
+            ).trim();
         } catch (Exception e) {
-            log.warn("Text extraction failed for {}: {}", originalName, e.getMessage());
+            log.warn(
+                    "Text extraction failed for {}: {}",
+                    originalName,
+                    e.getMessage()
+            );
+
             throw new ResponseStatusException(
                     HttpStatus.UNPROCESSABLE_ENTITY,
                     "Failed to extract text from document"
@@ -95,20 +134,24 @@ public class DocumentService {
 
         List<String> chunkTexts = documentChunkingService.split(extractedText);
         List<float[]> embeddings = new ArrayList<>(chunkTexts.size());
+
         for (String chunkText : chunkTexts) {
             embeddings.add(toVector(embedOrFail(chunkText)));
         }
 
         Path storedPath = null;
+
         try {
             Path uploadDirectory = uploadDirectory();
             Files.createDirectories(uploadDirectory);
+
             String storedFileName = UUID.randomUUID() + "_" + originalName;
             storedPath = safeResolve(uploadDirectory, storedFileName);
             Files.write(storedPath, bytes);
 
             Path committedPath = storedPath;
             TransactionTemplate tx = new TransactionTemplate(transactionManager);
+
             Document saved = tx.execute(status -> {
                 Document document = Document.builder()
                         .originalFileName(originalName)
@@ -118,6 +161,7 @@ public class DocumentService {
                         .extractedText(extractedText)
                         .user(user)
                         .build();
+
                 Document persisted = documentRepository.save(document);
 
                 for (int i = 0; i < chunkTexts.size(); i++) {
@@ -127,9 +171,11 @@ public class DocumentService {
                             .content(chunkTexts.get(i))
                             .embedding(embeddings.get(i))
                             .build();
+
                     persisted.getChunks().add(chunk);
                     documentChunkRepository.save(chunk);
                 }
+
                 return persisted;
             });
 
@@ -143,12 +189,16 @@ public class DocumentService {
                     userEmail,
                     chunkTexts.size()
             );
+
             return toResponse(saved);
+
         } catch (RuntimeException e) {
             deleteQuietly(storedPath);
             throw e;
+
         } catch (IOException e) {
             deleteQuietly(storedPath);
+
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Could not store uploaded file"
@@ -159,6 +209,7 @@ public class DocumentService {
     @Transactional(readOnly = true)
     public List<DocumentResponse> getUserDocuments(String userEmail) {
         User user = findUser(userEmail);
+
         return documentRepository
                 .findByUserIdOrderByUploadedAtDesc(user.getId())
                 .stream()
@@ -169,6 +220,7 @@ public class DocumentService {
     @Transactional
     public void deleteDocument(UUID documentId, String userEmail) {
         User user = findUser(userEmail);
+
         Document document = documentRepository
                 .findByIdAndUserId(documentId, user.getId())
                 .orElseThrow(() -> new ResponseStatusException(
@@ -176,33 +228,59 @@ public class DocumentService {
                         "Document not found or access denied"
                 ));
 
-        Path filePath = safeResolve(uploadDirectory(), document.getStoredFileName());
+        Path filePath = safeResolve(
+                uploadDirectory(),
+                document.getStoredFileName()
+        );
+
         documentChunkRepository.deleteByDocumentId(document.getId());
         documentRepository.delete(document);
 
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                deleteQuietly(filePath);
-            }
-        });
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        deleteQuietly(filePath);
+                    }
+                }
+        );
 
-        log.info("Deleted document '{}' for user '{}'", document.getOriginalFileName(), userEmail);
+        log.info(
+                "Deleted document '{}' for user '{}'",
+                document.getOriginalFileName(),
+                userEmail
+        );
     }
 
+    /**
+     * Existing semantic-only search.
+     * Kept unchanged for the existing /api/search endpoint.
+     */
     @Transactional(readOnly = true)
-    public List<SearchResult> searchDocuments(String query, String userEmail, int limit) {
+    public List<SearchResult> searchDocuments(
+            String query,
+            String userEmail,
+            int limit
+    ) {
         if (query == null || query.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Query must not be blank");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Query must not be blank"
+            );
         }
 
         User user = findUser(userEmail);
         List<Double> queryEmbedding = embedOrFail(query);
         String vectorLiteral = toVectorLiteral(queryEmbedding);
+
         int safeLimit = Math.min(Math.max(limit, 1), 20);
 
         return documentChunkRepository
-                .findSimilarChunksByUserId(user.getId(), vectorLiteral, safeLimit)
+                .findSimilarChunksByUserId(
+                        user.getId(),
+                        vectorLiteral,
+                        safeLimit
+                )
                 .stream()
                 .map(hit -> new SearchResult(
                         hit.getDocumentId(),
@@ -214,13 +292,210 @@ public class DocumentService {
                 .toList();
     }
 
+    /**
+     * Hybrid search combining semantic retrieval and keyword retrieval
+     * using Reciprocal Rank Fusion (RRF).
+     */
+    @Transactional(readOnly = true)
+    public List<HybridSearchResult> searchDocumentsHybrid(
+            String query,
+            String userEmail,
+            int limit
+    ) {
+        if (query == null || query.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Query must not be blank"
+            );
+        }
+
+        User user = findUser(userEmail);
+
+        int safeLimit = Math.min(Math.max(limit, 1), 20);
+
+        // Generate the query embedding once.
+        List<Double> queryEmbedding = embedOrFail(query);
+        String vectorLiteral = toVectorLiteral(queryEmbedding);
+
+        // Retrieve semantic candidates.
+        List<ChunkSearchHit> vectorResults =
+                documentChunkRepository.findSimilarChunksByUserId(
+                        user.getId(),
+                        vectorLiteral,
+                        HYBRID_CANDIDATE_LIMIT
+                );
+
+        // Convert the natural-language question into an OR-based keyword query.
+        String keywordQuery = buildKeywordQuery(query);
+
+        // Retrieve keyword candidates.
+        List<KeywordChunkSearchHit> keywordResults =
+                keywordQuery.isBlank()
+                        ? List.of()
+                        : documentChunkRepository.findKeywordChunksByUserId(
+                        user.getId(),
+                        keywordQuery,
+                        HYBRID_CANDIDATE_LIMIT
+                );
+
+        log.info("Generated keyword query: {}", keywordQuery);
+
+        // Merge candidates using document ID and chunk index.
+        Map<ChunkKey, HybridAccumulator> fusedResults = new HashMap<>();
+
+        // Add semantic retrieval results.
+        for (int i = 0; i < vectorResults.size(); i++) {
+            ChunkSearchHit hit = vectorResults.get(i);
+
+            ChunkKey key = new ChunkKey(
+                    hit.getDocumentId(),
+                    hit.getChunkIndex()
+            );
+
+            HybridAccumulator accumulator = fusedResults.computeIfAbsent(
+                    key,
+                    ignored -> new HybridAccumulator(
+                            hit.getDocumentId(),
+                            hit.getDocumentName(),
+                            hit.getChunkIndex(),
+                            hit.getContent()
+                    )
+            );
+
+            int rank = i + 1;
+
+            accumulator.vectorRank = rank;
+            accumulator.rrfScore += 1.0 / (RRF_K + rank);
+        }
+
+        // Add keyword retrieval results.
+        for (int i = 0; i < keywordResults.size(); i++) {
+            KeywordChunkSearchHit hit = keywordResults.get(i);
+
+            ChunkKey key = new ChunkKey(
+                    hit.getDocumentId(),
+                    hit.getChunkIndex()
+            );
+
+            HybridAccumulator accumulator = fusedResults.computeIfAbsent(
+                    key,
+                    ignored -> new HybridAccumulator(
+                            hit.getDocumentId(),
+                            hit.getDocumentName(),
+                            hit.getChunkIndex(),
+                            hit.getContent()
+                    )
+            );
+
+            int rank = i + 1;
+
+            accumulator.keywordRank = rank;
+            accumulator.rrfScore += 1.0 / (RRF_K + rank);
+        }
+
+        // Sort by combined RRF score and return the highest-ranked chunks.
+        List<HybridSearchResult> results = fusedResults.values()
+                .stream()
+                .map(HybridAccumulator::toResult)
+                .sorted(
+                        Comparator.comparingDouble(
+                                HybridSearchResult::rrfScore
+                        ).reversed()
+                )
+                .limit(safeLimit)
+                .toList();
+
+        log.info(
+                "Hybrid search completed for user '{}': {} semantic candidates, "
+                        + "{} keyword candidates, {} unique results",
+                userEmail,
+                vectorResults.size(),
+                keywordResults.size(),
+                results.size()
+        );
+
+        return results;
+    }
+
+    /**
+     * Converts a natural-language question into an OR-based keyword query.
+     *
+     * Example:
+     * "Explain the difference between active and passive attacks"
+     * becomes:
+     * "active | passive | attacks"
+     *
+     * PostgreSQL applies English stemming when processing this query.
+     */
+    private String buildKeywordQuery(String query) {
+        return java.util.Arrays.stream(
+                        query.toLowerCase(Locale.ROOT)
+                                .replaceAll("[^a-z0-9]+", " ")
+                                .trim()
+                                .split("\\s+")
+                )
+                .filter(token -> !token.isBlank())
+                .filter(token -> token.length() > 1)
+                .filter(token -> !KEYWORD_QUERY_STOP_WORDS.contains(token))
+                .distinct()
+                .collect(Collectors.joining(" | "));
+    }
+
+    /**
+     * Composite key used to identify the same chunk across both retrieval methods.
+     */
+    private record ChunkKey(UUID documentId, Integer chunkIndex) {
+    }
+
+    /**
+     * Mutable accumulator used during Reciprocal Rank Fusion.
+     */
+    private static class HybridAccumulator {
+
+        private final UUID documentId;
+        private final String documentName;
+        private final int chunkIndex;
+        private final String content;
+
+        private Integer vectorRank;
+        private Integer keywordRank;
+        private double rrfScore;
+
+        private HybridAccumulator(
+                UUID documentId,
+                String documentName,
+                int chunkIndex,
+                String content
+        ) {
+            this.documentId = documentId;
+            this.documentName = documentName;
+            this.chunkIndex = chunkIndex;
+            this.content = content;
+        }
+
+        private HybridSearchResult toResult() {
+            return new HybridSearchResult(
+                    documentId,
+                    documentName,
+                    chunkIndex,
+                    content,
+                    vectorRank,
+                    keywordRank,
+                    rrfScore
+            );
+        }
+    }
+
     private List<Double> embedOrFail(String text) {
         try {
             return embeddingClient.generateEmbedding(text);
+
         } catch (ResponseStatusException e) {
             throw e;
+
         } catch (Exception e) {
             log.error("Embedding service error: {}", e.getMessage());
+
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Embedding service is unavailable. Please ensure the Python service is running."
@@ -231,7 +506,8 @@ public class DocumentService {
     private User findUser(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "User not found"
+                        HttpStatus.UNAUTHORIZED,
+                        "User not found"
                 ));
     }
 
@@ -251,9 +527,14 @@ public class DocumentService {
 
     private Path safeResolve(Path directory, String fileName) {
         Path resolved = directory.resolve(fileName).normalize();
+
         if (!resolved.startsWith(directory)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid stored file name");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid stored file name"
+            );
         }
+
         return resolved;
     }
 
@@ -261,29 +542,44 @@ public class DocumentService {
         if (original == null || original.isBlank()) {
             return "document";
         }
-        String name = Paths.get(original.replace("\\", "/")).getFileName().toString();
+
+        String name = Paths.get(original.replace("\\", "/"))
+                .getFileName()
+                .toString();
+
         name = name.replaceAll("[^a-zA-Z0-9._-]", "_");
+
         if (name.isBlank() || name.equals(".") || name.equals("..")) {
             return "document";
         }
-        return name.length() > 180 ? name.substring(name.length() - 180) : name;
+
+        return name.length() > 180
+                ? name.substring(name.length() - 180)
+                : name;
     }
 
     private boolean isAllowedType(String detectedType, String originalName) {
-        String type = detectedType == null ? "" : detectedType.toLowerCase(Locale.ROOT);
+        String type = detectedType == null
+                ? ""
+                : detectedType.toLowerCase(Locale.ROOT);
+
         if (ALLOWED_MEDIA_TYPES.contains(type)) {
             return true;
         }
+
         String lower = originalName.toLowerCase(Locale.ROOT);
+
         return lower.endsWith(".txt") && type.startsWith("text/")
                 || lower.endsWith(".md") && type.startsWith("text/");
     }
 
     private static float[] toVector(List<Double> embedding) {
         float[] vector = new float[embedding.size()];
+
         for (int i = 0; i < embedding.size(); i++) {
             vector[i] = embedding.get(i).floatValue();
         }
+
         return vector;
     }
 
@@ -297,10 +593,15 @@ public class DocumentService {
         if (path == null) {
             return;
         }
+
         try {
             Files.deleteIfExists(path);
         } catch (IOException e) {
-            log.warn("Could not delete file {}: {}", path, e.getMessage());
+            log.warn(
+                    "Could not delete file {}: {}",
+                    path,
+                    e.getMessage()
+            );
         }
     }
 }
