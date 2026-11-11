@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, api } from "./api";
 import "./App.css";
-import Dashboard from "./Dashboard";
+import Dashboard from "./DashboardChat";
 
 function App() {
   const [isLogin, setIsLogin] = useState(true);
@@ -130,7 +130,6 @@ function App() {
     }
   };
 
-
   // =========================
   // CHECKING AUTHENTICATION
   // =========================
@@ -186,7 +185,7 @@ function App() {
         <div className="brand-section">
 
           <div className="logo">
-            <span>✦</span>
+            <span>âœ¦</span>
           </div>
 
           <h1>
@@ -205,7 +204,7 @@ function App() {
             <div className="feature">
 
               <div className="feature-icon">
-                📄
+                ðŸ“„
               </div>
 
               <div>
@@ -226,7 +225,7 @@ function App() {
             <div className="feature">
 
               <div className="feature-icon">
-                ✦
+                âœ¦
               </div>
 
               <div>
@@ -247,7 +246,7 @@ function App() {
             <div className="feature">
 
               <div className="feature-icon">
-                ⚡
+                âš¡
               </div>
 
               <div>
@@ -426,7 +425,7 @@ function App() {
                 : "Create account"}
 
               <span>
-                →
+                â†’
               </span>
 
             </button>
@@ -488,7 +487,7 @@ function App() {
 
       <div className="footer">
 
-        © 2026 DocMind · Intelligent Document Assistant
+        Â© 2026 DocMind Â· Intelligent Document Assistant
 
       </div>
 

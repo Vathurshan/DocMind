@@ -1,3 +1,4 @@
+
 package docmind.document;
 
 import docmind.embedding.EmbeddingClient;
@@ -30,6 +31,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -53,16 +56,26 @@ public class DocumentService {
     private static final int HYBRID_CANDIDATE_LIMIT = 10;
 
     // Words that usually add little value to keyword retrieval.
+
     private static final Set<String> KEYWORD_QUERY_STOP_WORDS = Set.of(
             "the", "a", "an", "is", "are", "was", "were",
             "be", "been", "being", "and", "or", "but",
             "of", "to", "in", "on", "at", "by", "for",
             "with", "from", "between", "into", "about",
-            "explain", "describe", "define", "what", "which",
-            "who", "how", "why", "when", "where",
+
+            "explain", "describe", "define",
+            "what", "which", "who", "how", "why", "when", "where",
+
             "difference", "differences", "compare",
-            "tell", "me", "please"
+            "tell", "me", "please",
+
+            "three", "main",
+            "triad", "works", "algorithm",
+
+            "give", "using", "use",
+            "supported", "each"
     );
+
 
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
@@ -325,7 +338,7 @@ public class DocumentService {
                         HYBRID_CANDIDATE_LIMIT
                 );
 
-        // Convert the natural-language question into an OR-based keyword query.
+        // Convert the natural-language question into a keyword query.
         String keywordQuery = buildKeywordQuery(query);
 
         // Retrieve keyword candidates.
@@ -420,14 +433,34 @@ public class DocumentService {
     /**
      * Converts a natural-language question into an OR-based keyword query.
      *
-     * Example:
+     * Acronyms are prioritized when present:
+     * "Explain the CIA triad" -> "cia"
+     * "Explain the RSA encryption algorithm" -> "rsa"
+     *
+     * Otherwise, stopwords are removed:
      * "Explain the difference between active and passive attacks"
-     * becomes:
-     * "active | passive | attacks"
+     * -> "active | passive | attacks"
      *
      * PostgreSQL applies English stemming when processing this query.
      */
     private String buildKeywordQuery(String query) {
+
+        // Preserve uppercase acronyms before converting the query to lowercase.
+        Matcher matcher = Pattern.compile("\\b[A-Z]{2,}\\b").matcher(query);
+        List<String> acronyms = new ArrayList<>();
+
+        while (matcher.find()) {
+            acronyms.add(matcher.group().toLowerCase(Locale.ROOT));
+        }
+
+        // If the question contains an acronym, use it as the keyword query.
+        if (!acronyms.isEmpty()) {
+            return acronyms.stream()
+                    .distinct()
+                    .collect(Collectors.joining(" | "));
+        }
+
+        // Otherwise, extract meaningful words from the question.
         return java.util.Arrays.stream(
                         query.toLowerCase(Locale.ROOT)
                                 .replaceAll("[^a-z0-9]+", " ")
